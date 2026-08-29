@@ -3,7 +3,7 @@ import { generateText } from 'ai'
 import { NextResponse } from 'next/server'
 
 // Use official Gemini model identifiers: 'gemini-1.5-flash' or 'gemini-1.5-pro'
-const MODEL = 'gemini-1.5-flash'
+const MODEL = 'gemini-2.0-flash'
 
 function parseCaption(text: string) {
   const lines = text

@@ -4,6 +4,16 @@ import { createClient } from '@/lib/supabase/server'
 // Helper function to pause execution for status polling
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Helper function to check if a string is a valid public HTTP/HTTPS URL
+function isValidHttpUrl(stringUrl: string) {
+  try {
+    const url = new URL(stringUrl)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
@@ -14,9 +24,13 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const caption = typeof body.caption === 'string' ? body.caption.trim() : ''
-    const imageUrl = typeof body.imageUrl === 'string' ? body.imageUrl.trim() : ''
+    const rawImageUrl = typeof body.imageUrl === 'string' ? body.imageUrl.trim() : ''
 
     if (!caption) return NextResponse.json({ error: 'Caption is required.' }, { status: 400 })
+
+    // Validate image URL strictly
+    const hasValidImageUrl = isValidHttpUrl(rawImageUrl)
+    const imageUrl = hasValidImageUrl ? rawImageUrl : ''
 
     const requested = Array.isArray(body.channels)
       ? body.channels.filter((channel: unknown) => channel === 'facebook' || channel === 'instagram')
@@ -44,17 +58,18 @@ export async function POST(request: Request) {
         )
       }
 
-      const params = new URLSearchParams({ access_token: connection.access_token })
-
       if (channel === 'facebook') {
+        const params = new URLSearchParams({ access_token: connection.access_token })
         let endpoint = `${connection.account_handle}/feed`
-        params.set('message', caption)
 
-        if (imageUrl) {
-          // Send photo post directly to the page photos endpoint
+        if (hasValidImageUrl) {
+          // Post native photo via /photos endpoint
           endpoint = `${connection.account_handle}/photos`
           params.set('url', imageUrl)
           params.set('caption', caption)
+        } else {
+          // Fallback to text feed post
+          params.set('message', caption)
         }
 
         const response = await fetch(`https://graph.facebook.com/v23.0/${endpoint}`, {
@@ -73,18 +88,24 @@ export async function POST(request: Request) {
         results[channel] = result.post_id || result.id
 
       } else if (channel === 'instagram') {
-        if (!imageUrl) {
-          return NextResponse.json({ error: 'Instagram publishing requires an image URL.' }, { status: 400 })
+        if (!hasValidImageUrl) {
+          return NextResponse.json(
+            { error: 'Instagram publishing requires a valid public image HTTP/HTTPS URL.' },
+            { status: 400 }
+          )
         }
 
-        // Step 1: Create media container
-        params.set('image_url', imageUrl)
-        params.set('caption', caption)
+        const containerParams = new URLSearchParams({
+          access_token: connection.access_token,
+          image_url: imageUrl,
+          caption: caption,
+        })
 
+        // Step 1: Create container
         const response = await fetch(`https://graph.facebook.com/v23.0/${connection.account_handle}/media`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: params,
+          body: containerParams,
         })
 
         const containerResult = await response.json()
@@ -97,13 +118,13 @@ export async function POST(request: Request) {
 
         const containerId = containerResult.id
 
-        // Step 2: Poll container status until Meta finishes processing the image
+        // Step 2: Poll status
         let isReady = false
         let attempts = 0
         const maxAttempts = 10
 
         while (!isReady && attempts < maxAttempts) {
-          await sleep(2000) // Wait 2 seconds between checks
+          await sleep(2000)
           attempts++
 
           const statusRes = await fetch(
@@ -115,7 +136,7 @@ export async function POST(request: Request) {
             isReady = true
           } else if (statusData.status_code === 'ERROR') {
             return NextResponse.json(
-              { error: 'Instagram failed to process the image URL.', published: results },
+              { error: 'Instagram failed to process the image URL. Ensure it is publicly accessible.', published: results },
               { status: 502 }
             )
           }
@@ -128,7 +149,7 @@ export async function POST(request: Request) {
           )
         }
 
-        // Step 3: Publish the container
+        // Step 3: Publish container
         const publishParams = new URLSearchParams({
           creation_id: containerId,
           access_token: connection.access_token,
@@ -161,3 +182,5 @@ export async function POST(request: Request) {
     )
   }
 }
+
+export const runtime = 'nodejs'

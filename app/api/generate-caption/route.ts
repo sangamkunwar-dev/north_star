@@ -2,12 +2,8 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateText } from 'ai'
 import { NextResponse } from 'next/server'
 
-// Initialize Google provider using your direct API key
-const google = createGoogleGenerativeAI({
-  apiKey: process.env.GEMINI_API_KEY,
-})
-
-const MODEL = 'gemini-2.5-flash' // Using official Google model string
+// Use official Gemini model identifiers: 'gemini-1.5-flash' or 'gemini-1.5-pro'
+const MODEL = 'gemini-1.5-flash'
 
 function parseCaption(text: string) {
   const lines = text
@@ -45,6 +41,14 @@ export async function POST(request: Request) {
   let topic = ''
 
   try {
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY environment variable is missing.')
+    }
+
+    // Initialize provider dynamically inside request handler for Edge Runtime compatibility
+    const google = createGoogleGenerativeAI({ apiKey })
+
     const body = await request.json()
     topic = typeof body.topic === 'string' ? body.topic.trim() : ''
 
@@ -60,15 +64,17 @@ export async function POST(request: Request) {
     const parsed = parseCaption(result.text)
     if (!parsed.caption) throw new Error('Gemini returned an empty caption.')
     return NextResponse.json({ ...parsed, fallback: false })
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Northstar Social] Gemini caption generation failed:', error)
-    const cleanTopic = topic.replace(/\s+/g, ' ').trim()
-    return NextResponse.json({
-      caption: `Sharing a thoughtful update about ${cleanTopic}. Here is what matters most, and why it is worth bringing to our community.`,
-      hashtags: '#NorthstarSocial #Community #MeaningfulContent',
-      cta: 'What do you think? Share your perspective below.',
-      fallback: true,
-    })
+    
+    // Returns real error details during debugging instead of hiding it behind fallback text
+    return NextResponse.json(
+      { 
+        error: error?.message || 'Failed to generate caption with Gemini API.',
+        fallback: true 
+      }, 
+      { status: 500 }
+    )
   }
 }
 

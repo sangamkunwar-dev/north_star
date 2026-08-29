@@ -1,0 +1,5 @@
+import { InfoGrid, MarketingShell } from '@/components/marketing-shell'
+
+export default function FeaturesPage() {
+  return <MarketingShell eyebrow="Built for momentum" title="A focused system for your next great story." intro="Everything you need to turn a rough idea into a clear, consistent publishing rhythm."><InfoGrid items={[{ title: 'AI writing studio', text: 'Generate captions, hooks, hashtags, and calls to action from a simple brief.' }, { title: 'One calm calendar', text: 'Draft, schedule, and review your publishing pipeline without switching tools.' }, { title: 'Connected channels', text: 'Keep Facebook and Instagram publishing state visible before you hit post.' }, { title: 'Useful analytics', text: 'Understand cadence, channel mix, and your content library at a glance.' }, { title: 'Media-ready posts', text: 'Attach imagery to your story and keep the creative context with the copy.' }, { title: 'Private workspace', text: 'Your content and connected accounts belong to your authenticated workspace.' }]} /></MarketingShell>
+}

@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     if (connectionError) return NextResponse.json({ error: connectionError.message }, { status: 500 })
 
     const results: Record<string, string> = {}
+    const permalinks: Record<string, string> = {}
 
     for (const channel of requested) {
       const connection = connections?.find((item: any) => item.provider === channel)
@@ -85,7 +86,17 @@ export async function POST(request: Request) {
             { status: 502 }
           )
         }
-        results[channel] = result.post_id || result.id
+        const publishedId = result.post_id || result.id
+        let permalink: string | undefined
+        try {
+          const detailsResponse = await fetch(`https://graph.facebook.com/v23.0/${encodeURIComponent(publishedId)}?fields=id,permalink_url&access_token=${encodeURIComponent(connection.access_token)}`)
+          const details = await detailsResponse.json()
+          if (details.permalink_url) permalink = details.permalink_url
+        } catch (detailsError) {
+          console.error('[v0] Could not read Facebook permalink:', detailsError)
+        }
+        results[channel] = publishedId
+        if (permalink) permalinks[channel] = permalink
 
       } else if (channel === 'instagram') {
         if (!hasValidImageUrl) {
@@ -169,11 +180,20 @@ export async function POST(request: Request) {
           )
         }
 
+        let permalink: string | undefined
+        try {
+          const detailsResponse = await fetch(`https://graph.facebook.com/v23.0/${encodeURIComponent(published.id)}?fields=id,permalink&access_token=${encodeURIComponent(connection.access_token)}`)
+          const details = await detailsResponse.json()
+          if (details.permalink) permalink = details.permalink
+        } catch (detailsError) {
+          console.error('[v0] Could not read Instagram permalink:', detailsError)
+        }
         results[channel] = published.id
+        if (permalink) permalinks[channel] = permalink
       }
     }
 
-    return NextResponse.json({ published: results })
+    return NextResponse.json({ published: results, permalinks })
   } catch (error: any) {
     console.error('[Northstar Social] Meta publish failed:', error)
     return NextResponse.json(

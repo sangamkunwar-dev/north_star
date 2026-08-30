@@ -61,11 +61,26 @@ export function AuthPanel({ onNotice }: { onNotice: (message: string) => void })
       }
     } catch (error: any) {
       const message = String(error?.message ?? '').toLowerCase()
-      if (mode === 'login' && (message.includes('invalid') || message.includes('incorrect'))) onNotice('The phone number or password is incorrect.')
-      else if (mode === 'signup' && (message.includes('weak') || message.includes('at least') || message.includes('password should'))) onNotice('Use a password with at least 6 characters.')
-      else if (message.includes('phone')) onNotice('Enter a valid phone number in international format, such as +977 9800000000 or 9700000000.')
-      else if (message.includes('rate')) onNotice('Too many attempts. Please wait a moment and try again.')
-      else onNotice('We could not create your account. Please check your details and try again.')
+      const code = String(error?.code ?? '').toLowerCase()
+      if (code === 'phone_provider_disabled' || message.includes('phone provider') || message.includes('phone signups are disabled')) {
+        onNotice('Phone signup is disabled in Supabase. Enable Phone Auth and configure an SMS provider.')
+      } else if (code === 'signup_disabled' || message.includes('signups not allowed')) {
+        onNotice('Signup is disabled in Supabase. Enable new user signups in Auth settings.')
+      } else if (code === 'sms_send_failed' || message.includes('sms') || message.includes('twilio')) {
+        onNotice('SMS could not be sent. Check your Supabase SMS provider settings and phone number.')
+      } else if (code === 'user_already_exists' || message.includes('already registered') || message.includes('already exists')) {
+        onNotice('This phone number already has an account. Please log in instead.')
+      } else if (mode === 'login' && (message.includes('invalid') || message.includes('incorrect'))) {
+        onNotice('The phone number or password is incorrect.')
+      } else if (mode === 'signup' && (message.includes('weak') || message.includes('at least') || message.includes('password should'))) {
+        onNotice('Use a password with at least 6 characters.')
+      } else if (message.includes('phone')) {
+        onNotice('Enter a valid phone number in international format, such as +977 9800000000 or 9700000000.')
+      } else if (message.includes('rate')) {
+        onNotice('Too many attempts. Please wait a moment and try again.')
+      } else {
+        onNotice('Signup failed. In Supabase, enable Phone Auth, enable new signups, and configure an SMS provider.')
+      }
     } finally { setBusy(false) }
   }
 

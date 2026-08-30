@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     const caption = typeof body.caption === 'string' ? body.caption.trim() : ''
     const rawMediaUrl = typeof body.mediaUrl === 'string' ? body.mediaUrl.trim() : ''
     const mediaType = body.mediaType === 'video' ? 'video' : 'image'
+    const targetPageId = typeof body.targetPageId === 'string' ? body.targetPageId.trim() : ''
 
     if (!caption) return NextResponse.json({ error: 'Caption is required.' }, { status: 400 })
 
@@ -61,8 +62,15 @@ export async function POST(request: Request) {
       }
 
       if (channel === 'facebook') {
+        let pageId = connection.account_handle
+        if (targetPageId) {
+          try {
+            const pages = JSON.parse((await supabase.from('social_connections').select('account_name').eq('user_id', user.id).eq('provider', 'facebook').single()).data?.account_name || '[]')
+            if (Array.isArray(pages) && pages.some((page: any) => String(page.id) === targetPageId)) pageId = targetPageId
+          } catch { /* use the saved default page */ }
+        }
         const params = new URLSearchParams({ access_token: connection.access_token })
-        let endpoint = `${connection.account_handle}/feed`
+        let endpoint = `${pageId}/feed`
 
         if (hasValidMediaUrl && mediaType === 'video') {
           endpoint = `${connection.account_handle}/videos`

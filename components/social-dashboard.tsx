@@ -117,9 +117,20 @@ export function SocialDashboard() {
     setBusy(true); setNotice('')
     const status = schedule ? 'scheduled' : 'published'
     const scheduledFor = nepalInputToIso(schedule)
+    if (status === 'published' && media && !/^https:\/\//i.test(media.url)) {
+      setNotice('Publishing media requires a public HTTPS URL. Paste the media URL so Facebook and Instagram can download it.')
+      return
+    }
     let publishResult: any = null
     if (status === 'published') {
-      const publishResponse = await fetch('/api/meta/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caption: `${caption.trim()}${hashtags ? `\n\n${hashtags}` : ''}${cta ? `\n\n${cta}` : ''}`, channels, mediaUrl: media?.url || '', mediaType: media?.type || '' }) })
+      let publishResponse: Response
+      try {
+        publishResponse = await fetch('/api/meta/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caption: `${caption.trim()}${hashtags ? `\n\n${hashtags}` : ''}${cta ? `\n\n${cta}` : ''}`, channels, mediaUrl: media?.url || '', mediaType: media?.type || '' }) })
+      } catch {
+        setNotice('Publishing could not connect to Northstar. Your post was not saved. Please try again.')
+        setBusy(false)
+        return
+      }
       publishResult = await publishResponse.json()
       if (!publishResponse.ok) {
         const partial = publishResult.published ? ` Published: ${Object.keys(publishResult.published).join(', ')}.` : ''
@@ -134,7 +145,7 @@ export function SocialDashboard() {
       console.error('[v0] Supabase social_posts insert failed:', error)
       setNotice(`Could not save: ${error.message || 'Supabase rejected the post.'}`)
     }
-    else { setPosts((current) => [{ id: data.id, title: topic.trim(), description: topic.trim(), caption, hashtags, cta, platforms: channels, status, imageUrl, date: formatNepalDate(scheduledFor || data.created_at) }, ...current]); const links = status === 'published' && typeof publishResult !== 'undefined' ? Object.entries(publishResult.permalinks || {}).map(([channel, url]) => `${channel}: ${url}`).join(' | ') : ''; setNotice(status === 'scheduled' ? 'Post scheduled successfully.' : `Meta confirmed publishing to ${channels.join(' and ')}.${links ? ` Open: ${links}` : ''}`); setTopic(''); setCaption(''); setHashtags(''); setCta(''); setSchedule(''); setMedia(null) }
+    else { setPosts((current) => [{ id: data.id, title: topic.trim(), description: topic.trim(), caption, hashtags, cta, platforms: channels, status, imageUrl: media?.url, mediaType: media?.type, aspect: media?.aspect, date: formatNepalDate(scheduledFor || data.created_at) }, ...current]); const links = status === 'published' && typeof publishResult !== 'undefined' ? Object.entries(publishResult.permalinks || {}).map(([channel, url]) => `${channel}: ${url}`).join(' | ') : ''; setNotice(status === 'scheduled' ? 'Post scheduled successfully.' : `Meta confirmed publishing to ${channels.join(' and ')}.${links ? ` Open: ${links}` : ''}`); setTopic(''); setCaption(''); setHashtags(''); setCta(''); setSchedule(''); setMedia(null) }
     setBusy(false)
   }
   async function removePost(id: string) { setPosts((current) => current.filter((post) => post.id !== id)); if (user) await supabase.from('social_posts').delete().eq('id', id).eq('user_id', user.id); setNotice('Post deleted.') }
@@ -156,7 +167,7 @@ function WelcomeScreen({ visible, onContinue }: { visible: boolean; onContinue: 
     <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 text-center shadow-2xl">
       <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary text-primary-foreground"><Sparkles size={24} /></div>
       <p className="mt-6 text-sm font-bold uppercase tracking-[0.18em] text-primary">स्वागत छ</p>
-      <h1 className="mt-3 text-3xl font-semibold">नर्थस्टार सिर्जनालयमा स्वागत छ</h1>
+      <h1 className="mt-3 text-3xl font-semibold">नर्थस्टार सिर्जनालयमा स्व��गत छ</h1>
       <p className="mt-4 text-sm leading-6 text-muted-foreground">Made by Sangam Kunwar — तपाईंका विचारलाई प्रकाशित सामग्रीमा बदल्ने शान्त workspace.</p>
       <div className="mt-5 flex flex-col gap-2 text-sm">
         <a href="mailto:info@sangamkunwar.com.np" className="font-semibold text-primary underline-offset-4 hover:underline">info@sangamkunwar.com.np</a>

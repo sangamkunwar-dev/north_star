@@ -138,7 +138,7 @@ export async function POST(request: Request) {
         // Step 2: Poll status
         let isReady = false
         let attempts = 0
-        const maxAttempts = 10
+        const maxAttempts = mediaType === 'video' ? 30 : 15
 
         while (!isReady && attempts < maxAttempts) {
           await sleep(2000)
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
             isReady = true
           } else if (statusData.status_code === 'ERROR') {
             return NextResponse.json(
-              { error: 'Instagram failed to process the image URL. Ensure it is publicly accessible.', published: results },
+              { error: `Instagram failed to process the ${mediaType}. Ensure the HTTPS URL is public, downloadable without authentication, and supported by Instagram.`, published: results },
               { status: 502 }
             )
           }
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
 
         if (!isReady) {
           return NextResponse.json(
-            { error: 'Instagram timed out while processing your media image.', published: results },
+            { error: `Instagram timed out while processing your ${mediaType}. Try a smaller supported file or a different public HTTPS URL.`, published: results },
             { status: 504 }
           )
         }

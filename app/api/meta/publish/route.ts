@@ -24,13 +24,14 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const caption = typeof body.caption === 'string' ? body.caption.trim() : ''
-    const rawImageUrl = typeof body.imageUrl === 'string' ? body.imageUrl.trim() : ''
+    const rawMediaUrl = typeof body.mediaUrl === 'string' ? body.mediaUrl.trim() : ''
+    const mediaType = body.mediaType === 'video' ? 'video' : 'image'
 
     if (!caption) return NextResponse.json({ error: 'Caption is required.' }, { status: 400 })
 
     // Validate image URL strictly
-    const hasValidImageUrl = isValidHttpUrl(rawImageUrl)
-    const imageUrl = hasValidImageUrl ? rawImageUrl : ''
+    const hasValidMediaUrl = isValidHttpUrl(rawMediaUrl)
+    const mediaUrl = hasValidMediaUrl ? rawMediaUrl : ''
 
     const requested = Array.isArray(body.channels)
       ? body.channels.filter((channel: unknown) => channel === 'facebook' || channel === 'instagram')
@@ -63,10 +64,14 @@ export async function POST(request: Request) {
         const params = new URLSearchParams({ access_token: connection.access_token })
         let endpoint = `${connection.account_handle}/feed`
 
-        if (hasValidImageUrl) {
+        if (hasValidMediaUrl && mediaType === 'video') {
+          endpoint = `${connection.account_handle}/videos`
+          params.set('file_url', mediaUrl)
+          params.set('description', caption)
+        } else if (hasValidMediaUrl) {
           // Post native photo via /photos endpoint
           endpoint = `${connection.account_handle}/photos`
-          params.set('url', imageUrl)
+          params.set('url', mediaUrl)
           params.set('caption', caption)
         } else {
           // Fallback to text feed post
@@ -99,7 +104,7 @@ export async function POST(request: Request) {
         if (permalink) permalinks[channel] = permalink
 
       } else if (channel === 'instagram') {
-        if (!hasValidImageUrl) {
+        if (!hasValidMediaUrl) {
           return NextResponse.json(
             { error: 'Instagram publishing requires a valid public image HTTP/HTTPS URL.' },
             { status: 400 }
@@ -108,7 +113,8 @@ export async function POST(request: Request) {
 
         const containerParams = new URLSearchParams({
           access_token: connection.access_token,
-          image_url: imageUrl,
+          [mediaType === 'video' ? 'video_url' : 'image_url']: mediaUrl,
+          ...(mediaType === 'video' ? { media_type: 'REELS' } : {}),
           caption: caption,
         })
 

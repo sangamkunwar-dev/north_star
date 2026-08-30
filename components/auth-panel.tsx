@@ -6,12 +6,19 @@ import { createClient } from '@/lib/supabase/client'
 function normalizePhone(value: string) {
   const compact = value.replace(/[\s()-]/g, '')
   if (compact.startsWith('00')) return `+${compact.slice(2)}`
-  if (compact.startsWith('0')) return `+977${compact.slice(1)}`
-  return compact.startsWith('+') ? compact : `+${compact}`
+  if (compact.startsWith('+')) return compact
+  // Treat a 10-digit Nepali mobile number such as 9701234567 as +9779701234567.
+  if (/^9\d{9}$/.test(compact)) return `+977${compact}`
+  return `+${compact}`
 }
 
 function GoogleMark() {
-  return <span aria-hidden="true" className="grid size-5 place-items-center rounded-full bg-card text-sm font-black text-[#4285f4]">G</span>
+  return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5" role="img">
+    <path fill="#4285F4" d="M21.35 12.27c0-.79-.07-1.55-.22-2.27H12v4.3h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.14c1.84-1.69 2.91-4.18 2.91-7.42Z" />
+    <path fill="#34A853" d="M12 21.99c2.63 0 4.84-.87 6.45-2.35l-3.14-2.45c-.87.58-1.98.92-3.31.92-2.54 0-4.69-1.72-5.46-4.03H3.3v2.53A9.74 9.74 0 0 0 12 22Z" />
+    <path fill="#FBBC05" d="M6.54 14.08A5.86 5.86 0 0 1 6.23 12c0-.72.12-1.42.31-2.08V7.39H3.3A9.99 9.99 0 0 0 2.25 12c0 1.66.4 3.22 1.05 4.61l3.24-2.53Z" />
+    <path fill="#EA4335" d="M12 5.89c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.84 2.97 14.63 2 12 2a9.74 9.74 0 0 0-8.7 5.39l3.24 2.53C7.31 7.61 9.46 5.89 12 5.89Z" />
+  </svg>
 }
 
 export function AuthPanel({ onNotice }: { onNotice: (message: string) => void }) {
@@ -54,9 +61,9 @@ export function AuthPanel({ onNotice }: { onNotice: (message: string) => void })
       }
     } catch (error: any) {
       const message = String(error?.message ?? '').toLowerCase()
-      if (mode === 'login' && message.includes('invalid')) onNotice('The phone number or password is incorrect.')
-      else if (message.includes('password')) onNotice('Use a password with at least 6 characters.')
-      else if (message.includes('phone')) onNotice('Enter a valid phone number in international format, such as +977 9800000000.')
+      if (mode === 'login' && (message.includes('invalid') || message.includes('incorrect'))) onNotice('The phone number or password is incorrect.')
+      else if (mode === 'signup' && (message.includes('weak') || message.includes('at least') || message.includes('password should'))) onNotice('Use a password with at least 6 characters.')
+      else if (message.includes('phone')) onNotice('Enter a valid phone number in international format, such as +977 9800000000 or 9700000000.')
       else if (message.includes('rate')) onNotice('Too many attempts. Please wait a moment and try again.')
       else onNotice('We could not create your account. Please check your details and try again.')
     } finally { setBusy(false) }

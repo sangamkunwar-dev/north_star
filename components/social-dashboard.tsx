@@ -108,13 +108,22 @@ export function SocialDashboard() {
     if (!topic.trim() || !caption.trim() || !channels.length) { setNotice('Add a topic, caption, and at least one connected channel.'); return }
     if (!user && !connections.facebook && !connections.instagram) { setNotice('Connect a channel to save or publish posts.'); return }
     if (!channels.every((channel) => connections[channel])) { setNotice('Connect each selected channel before posting.'); return }
+    if (channels.includes('instagram') && imageUrl.startsWith('blob:')) {
+      setNotice('Instagram needs a public image URL. Add an image URL in the media field, or upload the image to public storage before publishing.')
+      return
+    }
     setBusy(true); setNotice('')
     const status = schedule ? 'scheduled' : 'published'
     const scheduledFor = nepalInputToIso(schedule)
     if (status === 'published') {
       const publishResponse = await fetch('/api/meta/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caption: `${caption.trim()}${hashtags ? `\n\n${hashtags}` : ''}${cta ? `\n\n${cta}` : ''}`, channels, imageUrl }) })
       const publishResult = await publishResponse.json()
-      if (!publishResponse.ok) { setNotice(publishResult.error || 'Publishing failed. Nothing was saved as published.'); setBusy(false); return }
+      if (!publishResponse.ok) {
+        const partial = publishResult.published ? ` Published: ${Object.keys(publishResult.published).join(', ')}.` : ''
+        setNotice(`${publishResult.error || 'Publishing failed. Nothing was saved as published.'}${partial}`)
+        setBusy(false)
+        return
+      }
     }
     const payload = { user_id: user?.id, title: topic.trim(), description: topic.trim(), caption: caption.trim(), hashtags, call_to_action: cta, platforms: channels, status, scheduled_for: scheduledFor, published_at: status === 'published' ? new Date().toISOString() : null }
     const { data, error } = user ? await supabase.from('social_posts').insert(payload).select('id,created_at').single() : { data: { id: crypto.randomUUID(), created_at: new Date().toISOString() }, error: null }
@@ -122,7 +131,7 @@ export function SocialDashboard() {
       console.error('[v0] Supabase social_posts insert failed:', error)
       setNotice(`Could not save: ${error.message || 'Supabase rejected the post.'}`)
     }
-    else { setPosts((current) => [{ id: data.id, title: topic.trim(), description: topic.trim(), caption, hashtags, cta, platforms: channels, status, imageUrl, date: formatNepalDate(scheduledFor || data.created_at) }, ...current]); setNotice(status === 'scheduled' ? 'Post scheduled successfully.' : 'Post saved successfully.'); setTopic(''); setCaption(''); setHashtags(''); setCta(''); setSchedule(''); setImageUrl('') }
+    else { setPosts((current) => [{ id: data.id, title: topic.trim(), description: topic.trim(), caption, hashtags, cta, platforms: channels, status, imageUrl, date: formatNepalDate(scheduledFor || data.created_at) }, ...current]); setNotice(status === 'scheduled' ? 'Post scheduled successfully.' : `Published to ${channels.join(' and ')} successfully.`); setTopic(''); setCaption(''); setHashtags(''); setCta(''); setSchedule(''); setImageUrl('') }
     setBusy(false)
   }
   async function removePost(id: string) { setPosts((current) => current.filter((post) => post.id !== id)); if (user) await supabase.from('social_posts').delete().eq('id', id).eq('user_id', user.id); setNotice('Post deleted.') }
@@ -180,8 +189,19 @@ function Integrations({ connections, connect, disconnect }: { connections: Recor
   return <div className="mt-8 max-w-3xl space-y-4"><div><h2 className="text-2xl font-semibold">Integrations</h2><p className="mt-2 text-sm text-muted-foreground">Connect your social accounts to publish directly from your workspace.</p></div>{items.map(({ channel, name, description }) => <div key={channel} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 sm:flex-row sm:items-center"><div className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-background p-2"><img src={`https://cdn.jsdelivr.net/gh/glincker/thesvg@main/public/icons/${channel}/default.svg`} alt={`${name} official logo`} className="size-7 object-contain" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><h3 className="font-semibold">{name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold ${connections[channel] ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{connections[channel] ? 'Connected' : 'Not connected'}</span></div><p className="mt-1 text-sm text-muted-foreground">{description}</p></div>{connections[channel] ? <button onClick={() => disconnect(channel)} className="rounded-xl border border-border px-4 py-2 text-sm font-bold hover:bg-muted">Disconnect</button> : <button onClick={() => connect(channel)} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-primary-foreground">Connect</button>}</div>)}</div> }
 function AdminPanel({ supabase, onNotice }: { supabase: ReturnType<typeof createClient> | null; onNotice: (message: string) => void }) {
   const [tickets, setTickets] = useState<any[]>([])
-  useEffect(() => { if (!supabase) return; supabase.from('support_tickets').select('id,user_id,type,subject,message,status,created_at').order('created_at', { ascending: false }).then(({ data, error }) => { if (error) onNotice('Admin ticket access is not configured yet. Run the updated Supabase schema.'); else setTickets(data || []) }) }, [supabase, onNotice])
-  async function updateStatus(id: string, status: string) { if (!supabase) return; const { error } = await supabase.from('support_tickets').update({ status }).eq('id', id); if (error) onNotice('Could not update ticket status.'); else setTickets((current) => current.map((ticket) => ticket.id === id ? { ...ticket, status } : ticket)) }
+  async function loadTickets() {
+    if (!supabase) return
+    const { data, error } = await supabase.from('support_tickets').select('id,user_id,type,subject,message,status,created_at').order('created_at', { ascending: false })
+    if (error) onNotice('Admin ticket access is not configured yet. Run the updated Supabase schema.')
+    else setTickets(data || [])
+  }
+  useEffect(() => { void loadTickets() }, [supabase])
+  async function updateStatus(id: string, status: string) {
+    if (!supabase) return
+    const { error } = await supabase.from('support_tickets').update({ status }).eq('id', id)
+    if (error) onNotice(`Could not update ticket status: ${error.message}`)
+    else { onNotice('Ticket status updated.'); await loadTickets() }
+  }
   return <div className="mt-8 max-w-5xl space-y-6"><div><h2 className="text-2xl font-semibold">Admin panel</h2><p className="mt-2 text-sm text-muted-foreground">Review incoming requests and manage their status. New tickets are addressed to info@sangamkunwar.com.np.</p></div><div className="space-y-3">{tickets.length ? tickets.map((ticket) => <div key={ticket.id} className="rounded-2xl border border-border bg-card p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary">{ticket.status.replace('_', ' ')}</span><span className="text-xs text-muted-foreground">{ticket.type}</span></div><h3 className="mt-3 font-semibold">{ticket.subject}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{ticket.message}</p><p className="mt-3 text-xs text-muted-foreground">User ID: {ticket.user_id}</p></div><select aria-label={`Update status for ${ticket.subject}`} value={ticket.status} onChange={(event) => updateStatus(ticket.id, event.target.value)} className="field sm:w-40"><option value="pending">Pending</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option><option value="closed">Closed</option></select></div></div>) : <Card title="No tickets yet"><p className="text-sm text-muted-foreground">Incoming support requests will appear here.</p></Card>}</div></div>
 }
 
@@ -191,7 +211,13 @@ function SupportTickets({ supabase, user, onNotice }: { supabase: ReturnType<typ
   const [message, setMessage] = useState('')
   const [items, setItems] = useState<any[]>([])
   const [sending, setSending] = useState(false)
-  useEffect(() => { if (!supabase || !user) return; supabase.from('support_tickets').select('id,type,subject,message,status,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).then(({ data }: { data: any[] | null }) => data && setItems(data)) }, [supabase, user])
+  async function loadItems() {
+    if (!supabase || !user) return
+    const { data, error } = await supabase.from('support_tickets').select('id,type,subject,message,status,created_at').eq('user_id', user.id).order('created_at', { ascending: false })
+    if (error) onNotice(`Could not load your tickets: ${error.message}`)
+    else setItems(data || [])
+  }
+  useEffect(() => { void loadItems() }, [supabase, user])
   async function submit() { if (!supabase || !user || !subject.trim() || !message.trim()) { onNotice('Add a subject and message first.'); return }; setSending(true); const { data, error } = await supabase.from('support_tickets').insert({ user_id: user.id, type, subject: subject.trim(), message: message.trim(), status: 'pending' }).select('id,type,subject,message,status,created_at').single(); setSending(false); if (error) { onNotice(`Could not send ticket: ${error.message}`); return }; if (data) setItems((current) => [data, ...current]); setSubject(''); setMessage(''); onNotice('Support ticket sent successfully.') }
   return <div className="mt-8 max-w-3xl space-y-6"><div><h2 className="text-2xl font-semibold">Support tickets</h2><p className="mt-2 text-sm text-muted-foreground">Report a problem, send a complaint, or ask for help.</p></div><Card title="Send a request"><div className="grid gap-4 sm:grid-cols-2"><label className="label">Request type<select value={type} onChange={(e) => setType(e.target.value)} className="field mt-2"><option>Support</option><option>Complaint</option><option>Feature request</option><option>Other</option></select></label><label className="label">Subject<input value={subject} onChange={(e) => setSubject(e.target.value)} className="field mt-2" placeholder="What do you need help with?" /></label></div><label className="label mt-4 block">Message<textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={5} className="field mt-2" placeholder="Explain what happened or what you need..." /></label><button type="button" onClick={submit} disabled={sending} className="mt-4 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">{sending ? 'Sending...' : 'Send ticket'}</button></Card><Card title="Your tickets">{items.length ? <div className="space-y-3">{items.map((item) => <div key={item.id} className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><p className="font-semibold">{item.subject}</p><span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary">{item.status || 'open'}</span></div><p className="mt-2 text-xs text-muted-foreground">{item.priority || 'normal'} priority</p><p className="mt-2 text-sm text-muted-foreground">{item.message}</p></div>)}</div> : <p className="text-sm text-muted-foreground">No tickets yet.</p>}</Card></div>
 }

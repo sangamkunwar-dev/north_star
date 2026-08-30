@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js'
 import { BarChart3, CalendarClock, Check, FileText, LayoutDashboard, LifeBuoy, LogOut, Menu, PenLine, Plus, Settings2, Sparkles, Trash2, Video, X } from 'lucide-react'
+import { AuthPanel } from '@/components/auth-panel'
 
 type Post = { id: string; title: string; description: string; caption: string; hashtags: string; cta: string; platforms: string[]; status: 'draft' | 'scheduled' | 'published'; date: string; imageUrl?: string; mediaType?: 'image' | 'video'; aspect?: 'portrait' | 'landscape' }
 type Channel = 'facebook' | 'instagram'
@@ -189,7 +190,7 @@ export function SocialDashboard() {
   function connect(channel: Channel) { window.location.href = `/api/meta/connect?channel=${channel}` }
   function dismissWelcome() { window.localStorage.setItem('northstar-welcome-seen', 'true'); setShowWelcome(false) }
 
-  if (!user) return <><WelcomeScreen visible={showWelcome} onContinue={dismissWelcome} /><Landing onSignIn={signIn} notice={notice} /></>
+  if (!user) return <><WelcomeScreen visible={showWelcome} onContinue={dismissWelcome} /><main className="flex min-h-screen items-center justify-center bg-background px-6 py-12 text-foreground"><AuthPanel onNotice={setNotice} /></main>{notice && <p role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-primary/20 bg-card px-4 py-3 text-sm font-semibold text-primary shadow-xl">{notice}</p>}</>
   return <>
   <WelcomeScreen visible={showWelcome} onContinue={dismissWelcome} />
   <main className="min-h-screen bg-background text-foreground"><div className="flex min-h-screen">

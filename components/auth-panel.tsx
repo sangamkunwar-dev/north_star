@@ -1,0 +1,61 @@
+'use client'
+
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+
+export function AuthPanel({ onNotice }: { onNotice: (message: string) => void }) {
+  const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? createClient() : null
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault()
+    if (!phone.trim() || password.length < 6) {
+      onNotice('Enter a phone number and a password with at least 6 characters.')
+      return
+    }
+    if (!supabase) { onNotice('Authentication is not configured yet. Add the Supabase URL and publishable key.'); return }
+    setBusy(true)
+    try {
+      if (mode === 'signup') {
+        const { error } = await supabase.auth.signUp({ phone: phone.trim(), password })
+        if (error) throw error
+        setNeedsVerification(true)
+        onNotice('We sent a verification code by SMS.')
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ phone: phone.trim(), password })
+        if (error) throw error
+        onNotice('Signed in successfully.')
+      }
+    } catch (error: any) {
+      onNotice(error?.message?.toLowerCase().includes('invalid') ? 'The phone number or password is incorrect.' : 'Authentication could not be completed. Please try again.')
+    } finally { setBusy(false) }
+  }
+
+  async function verify() {
+    if (!code.trim()) return onNotice('Enter the SMS verification code.')
+    if (!supabase) { onNotice('Authentication is not configured yet.'); return }
+    setBusy(true)
+    try {
+      const { error } = await supabase.auth.verifyOtp({ phone: phone.trim(), token: code.trim(), type: 'sms' })
+      if (error) throw error
+      onNotice('Phone verified. Redirecting to your dashboard.')
+    } catch { onNotice('That code is invalid or expired.') } finally { setBusy(false) }
+  }
+
+  async function google() {
+    if (!supabase) { onNotice('Authentication is not configured yet.'); return }
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback` } })
+    if (error) onNotice('Google sign-in could not start. Please try again.')
+  }
+
+  return <div className="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-2xl shadow-primary/10">
+    <div className="mb-7"><p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Northstar Social</p><h1 className="mt-3 text-3xl font-semibold tracking-tight">{needsVerification ? 'Verify your phone' : mode === 'login' ? 'Welcome back' : 'Create your account'}</h1><p className="mt-2 text-sm leading-6 text-muted-foreground">{needsVerification ? 'Enter the code sent to your phone to open your workspace.' : 'Plan, write, and publish from one focused workspace.'}</p></div>
+    {needsVerification ? <div className="space-y-4"><label className="label" htmlFor="otp">SMS verification code</label><input id="otp" value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" autoComplete="one-time-code" className="field" placeholder="123456" /><button type="button" disabled={busy} onClick={verify} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">{busy ? 'Verifying…' : 'Verify and continue'}</button><button type="button" disabled={busy} onClick={async () => { await supabase.auth.signInWithOtp({ phone: phone.trim() }); onNotice('A new verification code was sent.') }} className="w-full text-sm font-semibold text-primary">Resend code</button></div> : <form onSubmit={submit} className="space-y-4"><div><label className="label" htmlFor="phone">Phone number</label><input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} type="tel" inputMode="tel" autoComplete="tel" className="field mt-2" placeholder="+977 9800000000" /></div><div><label className="label" htmlFor="password">Password</label><input id="password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} className="field mt-2" placeholder="At least 6 characters" /></div><button disabled={busy} className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground disabled:opacity-50">{busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}</button><div className="relative py-1 text-center text-xs text-muted-foreground"><span className="bg-card px-3">or</span></div><button type="button" onClick={google} className="w-full rounded-xl border border-border px-4 py-3 text-sm font-bold hover:bg-muted">Continue with Google</button></form>}
+    {!needsVerification && <button type="button" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="mt-5 w-full text-sm font-semibold text-muted-foreground hover:text-foreground">{mode === 'login' ? 'New here? Create an account' : 'Already have an account? Log in'}</button>}
+  </div>
+}

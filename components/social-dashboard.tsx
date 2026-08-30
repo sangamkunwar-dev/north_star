@@ -30,6 +30,7 @@ function nepalInputToIso(value: string) {
 
 export function SocialDashboard() {
   const [showWelcome, setShowWelcome] = useState(true)
+  const [showAuth, setShowAuth] = useState(false)
   const supabase = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) return null
     return createClient()
@@ -108,22 +109,8 @@ export function SocialDashboard() {
     })
   }, [supabase, user])
 
-  async function signIn() {
-    if (!supabase) { setNotice('Sign-in is unavailable in this preview. You can still explore the writing assistant.'); return }
-    const method = window.prompt('Type google for Google sign-in, or phone for SMS OTP:', 'google')?.trim().toLowerCase()
-    if (method === 'phone') {
-      const phone = window.prompt('Enter your phone number with country code, for example +9779701024066:')?.trim()
-      if (!phone) return
-      const { error } = await supabase.auth.signInWithOtp({ phone })
-      if (error) { setNotice('SMS could not be sent. Check the number and Supabase SMS provider settings.'); return }
-      const token = window.prompt('Enter the 6-digit code sent by SMS:')?.trim()
-      if (!token) return
-      const { error: verifyError } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' })
-      if (verifyError) setNotice('That verification code is invalid or expired. Please try again.')
-      return
-    }
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback` } })
-    if (error) setNotice('Google sign-in could not start. Please try again.')
+  function signIn() {
+    setShowAuth(true)
   }
   async function generate() {
     if (!topic.trim()) { setNotice('Describe what you want to share first.'); return }
@@ -190,7 +177,7 @@ export function SocialDashboard() {
   function connect(channel: Channel) { window.location.href = `/api/meta/connect?channel=${channel}` }
   function dismissWelcome() { window.localStorage.setItem('northstar-welcome-seen', 'true'); setShowWelcome(false) }
 
-  if (!user) return <><WelcomeScreen visible={showWelcome} onContinue={dismissWelcome} /><main className="flex min-h-screen items-center justify-center bg-background px-6 py-12 text-foreground"><AuthPanel onNotice={setNotice} /></main>{notice && <p role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-primary/20 bg-card px-4 py-3 text-sm font-semibold text-primary shadow-xl">{notice}</p>}</>
+  if (!user) return showAuth ? <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12 text-foreground"><div className="w-full max-w-md"><button type="button" onClick={() => setShowAuth(false)} className="mb-4 text-sm font-semibold text-muted-foreground hover:text-foreground">← Back to homepage</button><AuthPanel onNotice={setNotice} /></div>{notice && <p role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-primary/20 bg-card px-4 py-3 text-sm font-semibold text-primary shadow-xl">{notice}</p>}</main> : <Landing onSignIn={signIn} notice={notice} />
   return <>
   <WelcomeScreen visible={showWelcome} onContinue={dismissWelcome} />
   <main className="min-h-screen bg-background text-foreground"><div className="flex min-h-screen">

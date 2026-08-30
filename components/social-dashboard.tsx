@@ -94,7 +94,10 @@ export function SocialDashboard() {
           if (connection.provider === 'facebook') {
             try {
               const pages = JSON.parse(connection.account_name || '[]')
-              if (Array.isArray(pages)) pages.forEach((page: any) => nextTargets.push({ id: String(page.id), name: page.name || 'Facebook Page', channel: 'facebook' }))
+              if (Array.isArray(pages)) pages.forEach((page: any) => {
+                nextTargets.push({ id: String(page.id), name: page.name || 'Facebook Page', channel: 'facebook' })
+                if (page.instagram_business_account?.id) nextTargets.push({ id: String(page.instagram_business_account.id), name: page.instagram_business_account.username ? `Instagram @${page.instagram_business_account.username}` : (page.instagram_business_account.name || 'Instagram'), channel: 'instagram' })
+              })
             } catch { nextTargets.push({ id: connection.account_handle, name: connection.account_name || 'Facebook Page', channel: 'facebook' }) }
           } else nextTargets.push({ id: connection.account_handle, name: connection.account_name || 'Instagram', channel: 'instagram' })
         })
@@ -159,7 +162,7 @@ export function SocialDashboard() {
     if (status === 'published') {
       let publishResponse: Response
       try {
-        publishResponse = await fetch('/api/meta/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caption: `${caption.trim()}${hashtags ? `\n\n${hashtags}` : ''}${cta ? `\n\n${cta}` : ''}`, channels, targetPageId: selectedTargets.find((id) => targets.find((target) => target.id === id)?.channel === 'facebook') || '', mediaUrl: media?.url || '', mediaType: media?.type || '' }) })
+        publishResponse = await fetch('/api/meta/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ caption: `${caption.trim()}${hashtags ? `\n\n${hashtags}` : ''}${cta ? `\n\n${cta}` : ''}`, channels, targetPageIds: selectedTargets.filter((id) => targets.find((target) => target.id === id)?.channel === 'facebook'), mediaUrl: media?.url || '', mediaType: media?.type || '' }) })
       } catch {
         setNotice('Publishing could not connect to Northstar. Your post was not saved. Please try again.')
         setBusy(false)

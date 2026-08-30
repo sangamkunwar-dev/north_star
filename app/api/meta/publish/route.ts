@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     const caption = typeof body.caption === 'string' ? body.caption.trim() : ''
     const rawMediaUrl = typeof body.mediaUrl === 'string' ? body.mediaUrl.trim() : ''
     const mediaType = body.mediaType === 'video' ? 'video' : 'image'
-    const targetPageId = typeof body.targetPageId === 'string' ? body.targetPageId.trim() : ''
+    const targetPageIds = Array.isArray(body.targetPageIds) ? body.targetPageIds.filter((id: unknown): id is string => typeof id === 'string' && Boolean(id.trim())).map((id: string) => id.trim()) : []
 
     if (!caption) return NextResponse.json({ error: 'Caption is required.' }, { status: 400 })
 
@@ -63,10 +63,11 @@ export async function POST(request: Request) {
 
       if (channel === 'facebook') {
         let pageId = connection.account_handle
-        if (targetPageId) {
+        if (targetPageIds.length) {
           try {
             const pages = JSON.parse((await supabase.from('social_connections').select('account_name').eq('user_id', user.id).eq('provider', 'facebook').single()).data?.account_name || '[]')
-            if (Array.isArray(pages) && pages.some((page: any) => String(page.id) === targetPageId)) pageId = targetPageId
+            const selectedPage = Array.isArray(pages) ? pages.find((page: any) => targetPageIds.includes(String(page.id))) : null
+            if (selectedPage) pageId = String(selectedPage.id)
           } catch { /* use the saved default page */ }
         }
         const params = new URLSearchParams({ access_token: connection.access_token })

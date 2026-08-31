@@ -34,6 +34,19 @@ create table if not exists public.user_subscriptions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.subscription_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  plan_id text not null references public.subscription_plans(id),
+  status text not null default 'pending' check (status in ('pending','approved','rejected','expired')),
+  submitted_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  reviewed_by uuid references auth.users(id),
+  review_note text,
+  period_start timestamptz,
+  period_end timestamptz
+);
+
 create table if not exists public.payment_attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -65,6 +78,14 @@ alter table public.profiles enable row level security;
 alter table public.subscription_plans enable row level security;
 alter table public.user_subscriptions enable row level security;
 alter table public.payment_attempts enable row level security;
+alter table public.subscription_requests enable row level security;
+
+drop policy if exists "users read own subscription requests" on public.subscription_requests;
+drop policy if exists "users create own subscription requests" on public.subscription_requests;
+drop policy if exists "admins manage subscription requests" on public.subscription_requests;
+create policy "users read own subscription requests" on public.subscription_requests for select to authenticated using ((select auth.uid()) = user_id);
+create policy "users create own subscription requests" on public.subscription_requests for insert to authenticated with check ((select auth.uid()) = user_id and status = 'pending');
+create policy "admins manage subscription requests" on public.subscription_requests for all to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
 alter table public.usage_counters enable row level security;
 
 -- Trusted admin authorization: raw_app_meta_data is server-controlled. Do not use raw_user_meta_data.

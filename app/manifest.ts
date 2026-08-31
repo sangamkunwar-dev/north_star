@@ -10,9 +10,20 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#f7f7fb',
     theme_color: '#5b4bdb',
     orientation: 'portrait-primary',
+
     icons: [
-      { src: '/icon-light-32x32.png', sizes: '32x32', type: 'image/png' },
-      { src: '/apple-icon.png', sizes: '180x180', type: 'image/png' },
+      {
+        src: '/sajilo-logo.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: '/sajilo-logo.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
     ],
   }
 }

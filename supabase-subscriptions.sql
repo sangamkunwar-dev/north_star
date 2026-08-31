@@ -67,15 +67,39 @@ alter table public.user_subscriptions enable row level security;
 alter table public.payment_attempts enable row level security;
 alter table public.usage_counters enable row level security;
 
-create policy "plans readable by everyone" on public.subscription_plans for select using (active = true);
-create policy "users read own profile" on public.profiles for select using (auth.uid() = id);
-create policy "users read own subscription" on public.user_subscriptions for select using (auth.uid() = user_id);
-create policy "users read own payments" on public.payment_attempts for select using (auth.uid() = user_id);
-create policy "users read own usage" on public.usage_counters for select using (auth.uid() = user_id);
-create policy "admins manage profiles" on public.profiles for all using (is_admin = true or email = 'sangamkunwar48@gmail.com') with check (is_admin = true or email = 'sangamkunwar48@gmail.com');
-create policy "admins manage subscriptions" on public.user_subscriptions for all using (exists (select 1 from public.profiles p where p.id = auth.uid() and (p.is_admin = true or p.email = 'sangamkunwar48@gmail.com')));
-create policy "admins manage payments" on public.payment_attempts for all using (exists (select 1 from public.profiles p where p.id = auth.uid() and (p.is_admin = true or p.email = 'sangamkunwar48@gmail.com')));
+-- Trusted admin authorization: raw_app_meta_data is server-controlled. Do not use raw_user_meta_data.
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((select (u.raw_app_meta_data ->> 'is_admin')::boolean from auth.users u where u.id = (select auth.uid())), false)
+    or coalesce((select u.email from auth.users u where u.id = (select auth.uid())), '') = 'sangamkunwar48@gmail.com';
+$$;
 
--- After your first sign-in, promote an administrator if needed:
--- update public.profiles set is_admin = true where email = 'sangamkunwar48@gmail.com';
+-- Make this script safe to run more than once.
+drop policy if exists "plans readable by everyone" on public.subscription_plans;
+drop policy if exists "users read own profile" on public.profiles;
+drop policy if exists "users read own subscription" on public.user_subscriptions;
+drop policy if exists "users read own payments" on public.payment_attempts;
+drop policy if exists "users read own usage" on public.usage_counters;
+drop policy if exists "admins manage profiles" on public.profiles;
+drop policy if exists "admins manage subscriptions" on public.user_subscriptions;
+drop policy if exists "admins manage payments" on public.payment_attempts;
+
+create policy "plans readable by everyone" on public.subscription_plans for select to anon, authenticated using (active = true);
+create policy "users read own profile" on public.profiles for select to authenticated using ((select auth.uid()) = id);
+create policy "users read own subscription" on public.user_subscriptions for select to authenticated using ((select auth.uid()) = user_id);
+create policy "users read own payments" on public.payment_attempts for select to authenticated using ((select auth.uid()) = user_id);
+create policy "users read own usage" on public.usage_counters for select to authenticated using ((select auth.uid()) = user_id);
+create policy "admins manage profiles" on public.profiles for all to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
+create policy "admins manage subscriptions" on public.user_subscriptions for all to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
+create policy "admins manage payments" on public.payment_attempts for all to authenticated using ((select public.is_admin())) with check ((select public.is_admin()));
+
+grant execute on function public.is_admin() to authenticated;
+
+-- Run this once after signing in, from a trusted server or Supabase SQL editor:
+-- update auth.users set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || '{"is_admin": true}'::jsonb where email = 'sangamkunwar48@gmail.com';
 -- Payment verification must be performed server-side with Khalti credentials or a hosted card provider. Never store raw card numbers.

@@ -26,6 +26,9 @@ function GoogleMark() {
 export function AuthPanel({ onNotice }: { onNotice: (message: string) => void }) {
   const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ? createClient() : null
   const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [businessName, setBusinessName] = useState('')
+  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
@@ -38,6 +41,20 @@ export function AuthPanel({ onNotice }: { onNotice: (message: string) => void })
     if (!/^\+[1-9]\d{7,14}$/.test(normalizedPhone)) {
       onNotice('Enter a valid phone number, for example +977 9800000000.')
       return
+    }
+    if (mode === 'signup') {
+      if (!businessName.trim() || !username.trim() || !email.trim()) {
+        onNotice('Enter your business name, email, and username.')
+        return
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        onNotice('Enter a valid email address.')
+        return
+      }
+      if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username.trim())) {
+        onNotice('Username must be 3–30 characters using letters, numbers, dots, dashes, or underscores.')
+        return
+      }
     }
     if (password.length < 6) {
       onNotice('Use a password with at least 6 characters.')
@@ -54,6 +71,13 @@ export function AuthPanel({ onNotice }: { onNotice: (message: string) => void })
         const { data, error } = await supabase.auth.signUp({
           phone: normalizedPhone,
           password,
+          options: {
+            data: {
+              business_name: businessName.trim(),
+              email: email.trim().toLowerCase(),
+              username: username.trim().toLowerCase(),
+            },
+          },
         })
         if (error) throw error
 
@@ -197,6 +221,22 @@ export function AuthPanel({ onNotice }: { onNotice: (message: string) => void })
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-4">
+          {mode === 'signup' && (
+            <>
+              <div>
+                <label className="label" htmlFor="business-name">Business name</label>
+                <input id="business-name" value={businessName} onChange={(e) => setBusinessName(e.target.value)} type="text" autoComplete="organization" className="field mt-2" placeholder="Your business name" />
+              </div>
+              <div>
+                <label className="label" htmlFor="email">Email address</label>
+                <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" className="field mt-2" placeholder="you@business.com" />
+              </div>
+              <div>
+                <label className="label" htmlFor="username">Username</label>
+                <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} type="text" autoComplete="username" className="field mt-2" placeholder="yourusername" />
+              </div>
+            </>
+          )}
           <div>
             <label className="label" htmlFor="phone">Phone number</label>
             <input

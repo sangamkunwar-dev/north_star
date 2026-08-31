@@ -7,11 +7,12 @@ import { Noto_Sans_Devanagari } from 'next/font/google'
 const notoDevanagari = Noto_Sans_Devanagari({ subsets: ['devanagari'], variable: '--font-devanagari' })
 
 export const metadata: Metadata = {
-  title: 'नर्थस्टार सिर्जनालय | Northstar Social',
+  title: 'Sajilo',
   description: 'Create, refine, and publish social posts from one calm workspace.',
   generator: 'v0.app',
   icons: {
     icon: [
+      { url: '/sajilo-logo.png', type: 'image/png' },
       {
         url: '/icon-light-32x32.png',
         media: '(prefers-color-scheme: light)',

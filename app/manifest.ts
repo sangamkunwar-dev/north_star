@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Northstar Social',
-    short_name: 'Northstar',
+    name: 'Sajilo',
+    short_name: 'Sajilo',
     description: 'Create meaningful social posts with a calm AI workspace.',
     start_url: '/',
     display: 'standalone',

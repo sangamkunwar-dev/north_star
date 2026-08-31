@@ -15,8 +15,11 @@ create table if not exists public.social_posts (
   status text not null default 'published' check (status in ('draft', 'scheduled', 'published')),
   scheduled_for timestamptz,
   published_at timestamptz,
+  published_ids jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.social_posts add column if not exists published_ids jsonb not null default '{}'::jsonb;
 
 alter table public.social_posts enable row level security;
 

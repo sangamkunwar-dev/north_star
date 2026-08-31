@@ -181,7 +181,7 @@ export function AuthPanel({ onNotice }: { onNotice: (message: string) => void })
   return (
     <div className="w-full max-w-md rounded-3xl border border-border bg-card p-7 shadow-2xl shadow-primary/10">
       <div className="mb-7">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Northstar Social</p>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Sajilo</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight">
           {needsVerification ? 'Verify your phone' : mode === 'login' ? 'Welcome back' : 'Create your account'}
         </h1>

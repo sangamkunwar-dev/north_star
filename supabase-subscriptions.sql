@@ -44,8 +44,16 @@ create table if not exists public.subscription_requests (
   reviewed_by uuid references auth.users(id),
   review_note text,
   period_start timestamptz,
-  period_end timestamptz
+  period_end timestamptz,
+  created_at timestamptz not null default now(),
+  approved_at timestamptz,
+  rejected_at timestamptz
 );
+
+create unique index if not exists subscription_requests_one_pending_per_user
+  on public.subscription_requests(user_id) where status = 'pending';
+create index if not exists subscription_requests_status_submitted_idx
+  on public.subscription_requests(status, submitted_at desc);
 
 create table if not exists public.payment_attempts (
   id uuid primary key default gen_random_uuid(),

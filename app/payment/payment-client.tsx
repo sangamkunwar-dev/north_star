@@ -18,7 +18,11 @@ export default function PaymentClient({ plan }: { plan: 'creator' | 'studio' }) 
     try {
       const response = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) })
       const data = await response.json()
-      if (!response.ok || !data.url) throw new Error(data.error ?? 'Unable to start checkout')
+      if (!response.ok || !data.url) {
+        throw new Error(
+          data.error ?? 'Stripe checkout is unavailable. Please configure Stripe before continuing.',
+        )
+      }
       window.location.assign(data.url)
     } catch (checkoutError) {
       setError(checkoutError instanceof Error ? checkoutError.message : 'Unable to start checkout')

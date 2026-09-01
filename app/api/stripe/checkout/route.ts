@@ -8,7 +8,12 @@ const PLANS = {
 
 export async function POST(request: Request) {
   try {
-    if (!stripe) return NextResponse.json({ error: 'Stripe is not configured' }, { status: 503 })
+    if (!stripe) {
+      return NextResponse.json(
+        { error: 'Stripe checkout is unavailable because STRIPE_SECRET_KEY is not configured.' },
+        { status: 503 },
+      )
+    }
     const { plan } = (await request.json()) as { plan?: keyof typeof PLANS }
     if (!plan || !PLANS[plan]) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
 

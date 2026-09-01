@@ -1,0 +1,6 @@
+import Link from 'next/link'
+import { ArrowLeft, Home, SearchX } from 'lucide-react'
+
+export default function NotFound() {
+  return <main className="grid min-h-screen place-items-center bg-background px-6 py-16 text-foreground"><section className="w-full max-w-xl text-center"><div className="mx-auto grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary"><SearchX size={30} /></div><p className="mt-8 text-sm font-bold uppercase tracking-[0.2em] text-primary">404 · Page not found</p><h1 className="mt-4 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">This page took a wrong turn.</h1><p className="mx-auto mt-5 max-w-md text-pretty text-sm leading-6 text-muted-foreground">The page you&apos;re looking for doesn&apos;t exist or may have moved. Return to your workspace and keep creating.</p><div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row"><Link href="/" className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-primary-foreground"><Home size={17} />Dashboard</Link><Link href="/" className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 py-3 text-sm font-bold"><ArrowLeft size={17} />Go back</Link></div></section></main>
+}

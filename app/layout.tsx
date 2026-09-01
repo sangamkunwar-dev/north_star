@@ -19,6 +19,10 @@ export const metadata: Metadata = {
     'Create, refine, and publish social posts from one calm workspace.',
 
   applicationName: 'Sajilo',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://sajilo.app'),
+  alternates: { canonical: '/' },
+  keywords: ['Sajilo', 'social media management', 'social post scheduler', 'Nepal'],
+  robots: { index: true, follow: true },
 
   generator: 'Next.js',
 

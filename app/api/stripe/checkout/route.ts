@@ -7,16 +7,24 @@ const PLANS = {
 } as const
 
 export async function POST(request: Request) {
-  try {
-    if (!stripe) {
-      return NextResponse.json(
-        { error: 'Stripe checkout is unavailable because STRIPE_SECRET_KEY is not configured.' },
-        { status: 503 },
-      )
-    }
-    const { plan } = (await request.json()) as { plan?: keyof typeof PLANS }
-    if (!plan || !PLANS[plan]) return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
+  if (!process.env.STRIPE_SECRET_KEY || !stripe) {
+    return NextResponse.json(
+      { error: 'Stripe checkout is not enabled for this deployment.' },
+      { status: 503 },
+    )
+  }
 
+  let plan: keyof typeof PLANS | undefined
+  try {
+    const body = (await request.json()) as { plan?: string }
+    if (body.plan === 'creator' || body.plan === 'studio') plan = body.plan
+  } catch {
+    return NextResponse.json({ error: 'Invalid checkout request.' }, { status: 400 })
+  }
+
+  if (!plan) return NextResponse.json({ error: 'Invalid plan.' }, { status: 400 })
+
+  try {
     const origin = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin
     const selected = PLANS[plan]
     const session = await stripe.checkout.sessions.create({
@@ -29,9 +37,13 @@ export async function POST(request: Request) {
       integration_identifier: `sajilo_${Math.random().toString(36).slice(2, 10)}`,
       metadata: { plan },
     })
+    if (!session.url) return NextResponse.json({ error: 'Stripe did not return a checkout URL.' }, { status: 502 })
     return NextResponse.json({ url: session.url })
   } catch (error) {
     console.error('[v0] Stripe checkout failed', error)
-    return NextResponse.json({ error: 'Unable to start checkout' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Stripe is temporarily unavailable. Please try again later.' },
+      { status: 502 },
+    )
   }
 }

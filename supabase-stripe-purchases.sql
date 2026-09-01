@@ -21,6 +21,30 @@ alter table public.stripe_purchases enable row level security;
 drop policy if exists "admins read stripe purchases" on public.stripe_purchases;
 create policy "admins read stripe purchases" on public.stripe_purchases for select to authenticated using ((select public.is_admin()));
 
+create or replace function public.record_stripe_purchase(
+  p_session_id text,
+  p_customer_id text,
+  p_subscription_id text,
+  p_customer_email text,
+  p_plan_id text,
+  p_amount_npr integer
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.stripe_purchases (stripe_session_id, stripe_customer_id, stripe_subscription_id, customer_email, user_id, plan_id, amount_npr, status)
+  select p_session_id, p_customer_id, p_subscription_id, p_customer_email, u.id, p_plan_id, p_amount_npr, 'paid'
+  from auth.users u
+  where lower(u.email) = lower(p_customer_email)
+  on conflict (stripe_session_id) do update set status = 'paid', stripe_subscription_id = excluded.stripe_subscription_id;
+end;
+$$;
+
+grant execute on function public.record_stripe_purchase(text, text, text, text, text, integer) to anon, authenticated;
+
 -- Optional helper view for the admin panel.
 create or replace view public.admin_purchase_summary as
 select p.id, p.customer_email, p.plan_id, p.amount_npr, p.status, p.stripe_session_id, p.created_at

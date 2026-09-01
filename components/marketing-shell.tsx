@@ -16,7 +16,8 @@ export function MarketingShell({
 }) {
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <header className="sticky top-0 z-20 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         {/* Sajilo Logo */}
         <Link href="/" className="flex items-center gap-3">
           <div className="relative flex size-10 items-center justify-center overflow-hidden rounded-xl">
@@ -56,15 +57,16 @@ export function MarketingShell({
         >
           Sign in
         </Link>
+        </div>
       </header>
 
       {/* Hero */}
-      <section className="mx-auto max-w-6xl px-6 pb-16 pt-16 sm:pb-24 sm:pt-24">
+      <section className="mx-auto max-w-6xl px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20">
         <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary">
           {eyebrow}
         </p>
 
-        <h1 className="mt-5 max-w-3xl text-5xl font-semibold leading-[1.02] tracking-[-0.05em] text-balance sm:text-7xl">
+        <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-balance sm:text-6xl lg:text-7xl">
           {title}
         </h1>
 
@@ -101,7 +103,7 @@ export function InfoGrid({
   items: { title: string; text: string }[]
 }) {
   return (
-    <div className="mt-14 grid gap-4 md:grid-cols-3">
+    <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((item) => (
         <article
           key={item.title}
